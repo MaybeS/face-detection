@@ -1,5 +1,5 @@
-from tfnet import SimpleNet
-from yolo import YOLO
+from .tfnet import SimpleNet
+from .yolo import YOLO
 
 class FaceDetectionRegressor:
   def __init__(self, path):
