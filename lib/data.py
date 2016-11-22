@@ -1,5 +1,5 @@
 from .drawer import *
-import _pickle as pickle
+import cPickle as pickle
 from copy import deepcopy
 import subprocess
 mult = 1.

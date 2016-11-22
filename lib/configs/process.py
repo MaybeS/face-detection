@@ -3,7 +3,7 @@ import os
 
 def cfg_yielder(model, undiscovered = True):
 	# Step 1: parsing cfg file
-	with open(model + '/yolo-face.cfg', 'rb') as f:
+	with open(model + '/yolo-face.cfg', 'r') as f:
 		lines = f.readlines()
 
 	s = [] # contains layers' info
