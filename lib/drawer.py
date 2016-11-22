@@ -1,4 +1,4 @@
-from box import *
+from .box import *
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import cv2
@@ -79,7 +79,7 @@ def merge(boxes, w, h):
 # 	bot = int(min(h, bot))
 # 	return left, right, top, bot
 
-from union import Union
+from .union import Union
 def union_find(boxs):
 	ln = len(boxs)
 	union = Union(ln)

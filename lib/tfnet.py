@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 import os
 import time
-from drawer import *
-from data import shuffle
-from yolo import *
+from .drawer import *
+from .data import shuffle
+from .yolo import *
 import subprocess
 import sys
 
@@ -122,13 +122,6 @@ class SimpleNet(object):
 				f.write(val.tobytes())
 	
 	def decode(self):
-    		"""
-			Please refer to the comment section inside data.py
-			to understand the below placeholders. I look forward
-			to receiving comments/improvements on my current
-			implementation of YOLO's loss calculation
-			"""
-
 		SS = self.S * self.S
 		self.true_class = tf.placeholder(tf.float32, #
 			[None, SS * self.C])
