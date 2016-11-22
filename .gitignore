@@ -1,3 +1,4 @@
 *.pyc
 *.weights
 .DS_Store
+test*

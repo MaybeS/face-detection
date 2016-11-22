@@ -1,14 +1,7 @@
 import numpy as np
-import os
 import tensorflow as tf
-import time
+from time import time
 from .configs.process import cfg_yielder
-
-labels20 = ["aeroplane", "bicycle", "bird", "boat", "bottle",
-    "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
-    "horse", "motorbike", "person", "pottedplant", "sheep", "sofa",
-    "train", "tvmonitor"]
-default_models = ['full', 'small', 'tiny']
 
 class layer:
     def __init__(self, type, size = 0, c = 0, n = 0, h = 0, w = 0):
@@ -44,16 +37,15 @@ class YOLO(object):
 
     def __init__(self, model):
         pick = ['face']
-        if model in default_models: pick = labels20
         self.labels = pick
         self.model = model
         self.layers = []
         self.build(model)
         self.layer_number = len(self.layers)
         weight_file = model +  '/yolo-face.weights'
-        start = time.time()
+        start = time()
         self.loadWeights(weight_file)
-        stop = time.time()
+        stop = time()
 
     def build(self, model):
         cfg = model.split('-')[0]
@@ -73,12 +65,10 @@ class YOLO(object):
             np.memmap(weight_path, mode = 'r',
                 offset = 0, shape = (),
                 dtype = '(4)i4,'))
-        #self.startwith = np.array(self.startwith)
         offset = 16
         chunkMB = 1000
         chunk = int(chunkMB * 2**18) 
         
-        # Read byte arrays from file
         for i in range(self.layer_number):
             l = self.layers[i]
             if l.type == "CONVOLUTIONAL":
@@ -110,7 +100,6 @@ class YOLO(object):
                         dtype = '({})float32,'.format(c))))
                     offset += c * 4
 
-        # Reshape
         for i in range(self.layer_number):
             l = self.layers[i]
             

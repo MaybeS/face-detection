@@ -1,26 +1,11 @@
 import tensorflow as tf
 import numpy as np
-import os
-import time
-from .drawer import *
-from .data import shuffle
-from .yolo import *
-import subprocess
-import sys
+from .drawer import crop
 
 class SimpleNet(object):
-
 	labels = list()
-	colors = list()
 	C = int()
 	model = str()
-	step = int()
-	learning_rate = float()
-	scale_prob = float()
-	scale_conf = float()
-	scale_noobj = float()
-	scale_coor = float()
-	save_every = int()
 
 	def __init__(self, yolo):
 		self.model = yolo.model
@@ -29,11 +14,8 @@ class SimpleNet(object):
 		self.C = len(self.labels)
 
 		base = int(np.ceil(pow(self.C, 1./3)))
-		for x in range(len(self.labels)):
-			self.colors += [to_color(x, base)]		
 
-		self.inp = tf.placeholder(tf.float32,
-			[None, 448, 448, 3], name = 'input')
+		self.inp = tf.placeholder(tf.float32, [None, 448, 448, 3], name = 'input')
 		self.drop = tf.placeholder(tf.float32, name = 'dropout')
 		
 		now = self.inp
@@ -83,11 +65,7 @@ class SimpleNet(object):
 				now = tf.nn.dropout(now, keep_prob = self.drop)
 		self.out = now
 
-	def setup_meta_ops(self, save, lr, scale, gpu, train, load, keep):
-		self.save_every = save
-		self.learning_rate = lr
-		scales = [float(f) for i, f in enumerate(scale.split(','))]
-		self.scale_prob, self.scale_conf, self.scale_noobj, self.scale_coor = scales 
+	def setup_meta_ops(self, gpu):
 		if gpu > 0: 
 			percentage = min(gpu, 1.)
 			gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=percentage)
@@ -99,203 +77,50 @@ class SimpleNet(object):
 			self.sess = tf.Session(config = tf.ConfigProto(
 				allow_soft_placement = False,
 				log_device_placement = False))
-		if train: 
-			self.decode()
-		self.saver = tf.train.Saver(tf.all_variables(), max_to_keep = keep)
+
 		self.sess.run(tf.initialize_all_variables())
-		if load:
-			load_point = 'backup/model-{}'.format(self.step)
-			self.saver.restore(self.sess, load_point)
 
-	def savepb(self, name):
-		tf.train.write_graph(self.sess.graph_def,'./', name, as_text = False)
+	def predict(self, img, threshold, merge):
+		img = crop(img)
+		prehold = threshold
+		if merge: prehold /= 4
 
-	def to_constant(self, inc = 0):
-		with open('binaries/yolo-{}-{}.weights'.format(
-			self.model.split('-')[0], self.step + inc), 'w') as f:
-			f.write(np.array([1]*4, dtype=np.int32).tobytes())
-			for i, variable in enumerate(tf.trainable_variables()):
-				val = variable.eval(self.sess)
-				if len(val.shape) == 4:
-					val = val.transpose([3,2,0,1])
-				val = val.reshape([-1])
-				f.write(val.tobytes())
-	
-	def decode(self):
-		SS = self.S * self.S
-		self.true_class = tf.placeholder(tf.float32, #
-			[None, SS * self.C])
-		self.true_coo = tf.placeholder(tf.float32, #
-			[None, SS * 2 * 4])
-		self.class_idtf = tf.placeholder(tf.float32, #
-			[None, SS * self.C])
-		self.cooid1 = tf.placeholder(tf.float32, #
-			[None, SS, 1, 4])
-		self.cooid2 = tf.placeholder(tf.float32, #
-			[None, SS, 1, 4])
-		self.confs1 = tf.placeholder(tf.float32, #
-			[None, SS])
-		self.confs2 = tf.placeholder(tf.float32, #
-			[None, SS])
-		self.conid1 = tf.placeholder(tf.float32, #
-			[None, SS])
-		self.conid2 = tf.placeholder(tf.float32, #
-			[None, SS])
-		self.upleft = tf.placeholder(tf.float32, #
-			[None, SS, 2, 2])
-		self.botright = tf.placeholder(tf.float32, #
-			[None, SS, 2, 2])
+		feed_dict = {
+			self.inp : np.concatenate([img, img[:,:,::-1,:]], 0), 
+			self.drop : 1.0
+		}
 
-		# Extract the coordinate prediction from 
-		# output of YOLO's net
-		coords = self.out[:, SS * (self.C + 2):]
-		coords = tf.reshape(coords, [-1, SS, 2, 4])
+		out = self.sess.run([self.out], feed_dict)
 
-		wh = tf.pow(coords[:,:,:,2:4], 2) * (.5 * self.S); # weight & height of each box
-		xy = coords[:,:,:,0:2] # the center coordinates of each box
-		floor = xy - wh
-		ceil = xy + wh
+		boxes = list()
+		predictions = out[0]
+		flip = False
+		for prediction in predictions:
+			SS = self.S ** 2
+			prob_size = SS * 1
+			conf_size = SS * 2
 
-		# calculate the coordinates of the intersection 
-		# between predicted boxes and correct boxes
-		intersect_upleft = tf.maximum(floor, self.upleft)
-		intersect_botright = tf.minimum(ceil, self.botright)
-		intersect_wh = intersect_botright - intersect_upleft
-		intersect_wh = tf.maximum(intersect_wh, 0.0)
-		
-		# calculate the areas of intersection 
-		intersect_area1 = tf.mul(intersect_wh[:,:,0,0], intersect_wh[:,:,0,1])
-		intersect_area2 = tf.mul(intersect_wh[:,:,1,0], intersect_wh[:,:,1,1])
-		# determine which box has worse & which box has better IOU to ground truth
-		inferior_cell = intersect_area1 > intersect_area2
-		inferior_cell = tf.to_float(inferior_cell)
+			probs = prediction[0 : prob_size]
+			confs = prediction[prob_size : (prob_size + conf_size)]
+			cords = prediction[(prob_size + conf_size) : ]
 
-		# since the initial value of confs is 1.0 throughout
-		# now we know which box of each pair has worse IOU
-		# its value should be set to 0.0
-		confs1 = tf.mul(inferior_cell, self.confs1) 
-		confs2 = tf.mul((1.-inferior_cell), self.confs2)
-		confs1 = tf.expand_dims(confs1, -1)
-		confs2 = tf.expand_dims(confs2, -1)
-		confs = tf.concat(2, [confs1, confs2])
+			probs = probs.reshape([SS, 1])
+			confs = confs.reshape([SS, 2])
+			cords = cords.reshape([SS, 2, 4])
 
-		# Again, since now we know which box of each pair has worse IOU
-		# it should not contribute to the loss value
-		# hence the corresponding conid is set to 0.0
-		mult = inferior_cell
-		conid1 =  tf.mul(mult, self.conid1)
-		conid2 =  tf.mul((1. - mult), self.conid2)
-		conid1 = tf.expand_dims(conid1, -1)
-		conid2 = tf.expand_dims(conid2, -1)
-		conid = tf.concat(2, [conid1, conid2])
+			for grid in range(SS):
+				for b in range(2):
+					box = {'w':0, 'h':0, 'x':0, 'y':0, 'p':0}
+					box['x'] = (cords[grid, b, 0] + grid %  self.S) / self.S
+					box['x'] = 1 - box['x'] if flip else box['x']
+					box['y'] = (cords[grid, b, 1] + grid // self.S) / self.S
+					box['w'] =  cords[grid, b, 2] ** 2
+					box['h'] =  cords[grid, b, 3] ** 2
+					box['p'] = confs[grid, b] * probs[grid, 0]
+					if box['p'] > prehold:
+						boxes.append(box)
 
-		# Again, since now we know which box of each pair has worse IOU
-		# it should not contribute to the loss value, 
-		# hence the corresponding cooid is set to 0.0 
-		times = tf.expand_dims(inferior_cell, -1) # [batch, 49, 1]
-		times = tf.expand_dims(times, 2) # [batch, 49, 1, 1]
-		times = tf.concat(3, [times]*4) # [batch, 49, 1, 4]
-		cooid1 = tf.mul(times, self.cooid1)
-		cooid2 = (1. - times) * self.cooid2
-		cooid = tf.concat(2, [cooid1, cooid2]) # [batch, 49, 2, 4]
+			if flip: break
+			flip = True
 
-		# reshape
-		confs = tf.reshape(confs,
-			[-1, int(np.prod(confs.get_shape()[1:]))])
-		conid = tf.reshape(conid,
-			[-1, int(np.prod(conid.get_shape()[1:]))])
-		cooid = tf.reshape(cooid,
-			[-1, int(np.prod(cooid.get_shape()[1:]))])
-
-		conid = conid + tf.to_float(conid > .5) * (self.scale_conf - 1.)
-		conid = conid + tf.to_float(conid < .5) * self.scale_noobj
-
-		# true is the regression target
-		# idtf is the weight
-		# the L2 loss of YOLO is then: tf.mul(idtf, (self.out - true)**2)
-		true = tf.concat(1,[self.true_class, confs, self.true_coo])
-		idtf = tf.concat(1,[self.class_idtf * self.scale_prob, conid,
-							cooid * self.scale_coor])
-
-		self.loss = tf.pow(self.out - true, 2)
-		self.loss = tf.mul(self.loss, idtf)
-		self.loss = tf.reduce_sum(self.loss, 1)
-		self.loss = .5 * tf.reduce_mean(self.loss)
-
-		optimizer = tf.train.RMSPropOptimizer(self.learning_rate)
-		gradients = optimizer.compute_gradients(self.loss)
-		self.train_op = optimizer.apply_gradients(gradients)
-
-	def save(self, path):
-		self.saver.save(self.sess, path)
-
-
-	def train(self, train_set, annotate, batch_size, epoch):
-		batches = shuffle(train_set, annotate, self.C, self.S, batch_size, epoch)
-		for i, batch in enumerate(batches):
-			x_batch, datum = batch
-			feed_dict = {
-				self.inp : x_batch,
-				self.drop : .5,
-				self.true_class : datum[0],
-				self.confs1 : datum[1],
-				self.confs2 : datum[2],
-				self.true_coo : datum[3],
-				self.upleft : datum[4],
-				self.botright : datum[5],
-				self.class_idtf : datum[6],
-				self.conid1 : datum[7],
-				self.conid2 : datum[8],
-				self.cooid1 : datum[9],
-				self.cooid2 : datum[10],
-			}
-			_, loss = self.sess.run([self.train_op, self.loss], feed_dict)
-			if (i+1) % (self.save_every/batch_size) == 0:
-				self.saver.save(self.sess, 'backup/model-{}'.format(self.step+i+1))
-				self.to_constant(inc = i+1)
-
-		#print 'save checkpoint and binaries at step {}'.format(self.step+i+1)
-		#self.saver.save(self.sess, 'backup/model-{}'.format(self.step+i+1))
-		#self.to_constant(inc = i+1)
-
-	def predict(self, path, threshold, batch, merge):
-		img_path = path
-		threshold = threshold
-		all_img_ = os.listdir(img_path)
-		batch = min(batch, len(all_img_))
-
-		predicts = []
-
-		for j in range(len(all_img_)/batch):
-			img_feed = list()
-			all_img = all_img_[j*batch: (j*batch+batch)]
-			new_all = list()
-			for img in all_img:
-				if '.jpg' not in img: continue
-				new_all += [img]
-				this_img = '{}/{}'.format(img_path, img)
-				this_img = crop(this_img)
-				img_feed.append(this_img)
-				img_feed.append(this_img[:,:,::-1,:])
-			all_img = new_all
-
-			feed_dict = {
-				self.inp : np.concatenate(img_feed, 0), 
-				self.drop : 1.0
-			}
-		
-			start = time.time()
-			out = self.sess.run([self.out], feed_dict)
-			stop = time.time()
-			last = stop - start
-			
-			predict = []
-			for i, prediction in enumerate(out[0]):
-				predict.append(draw_predictions(
-					prediction,
-					'{}/{}'.format(img_path, all_img[i/2]), 
-					i % 2, threshold,
-					self.C, self.S, self.labels, self.colors, merge))
-			
-			predicts.append(predict)
-		return predicts
+		return boxes
