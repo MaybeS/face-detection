@@ -2,7 +2,7 @@ import numpy as np
 import os
 import tensorflow as tf
 import time
-from configs.process import cfg_yielder
+from .configs.process import cfg_yielder
 
 labels20 = ["aeroplane", "bicycle", "bird", "boat", "bottle",
     "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
@@ -11,8 +11,7 @@ labels20 = ["aeroplane", "bicycle", "bird", "boat", "bottle",
 default_models = ['full', 'small', 'tiny']
 
 class layer:
-    def __init__(self, type, size = 0, 
-    	c = 0, n = 0, h = 0, w = 0):
+    def __init__(self, type, size = 0, c = 0, n = 0, h = 0, w = 0):
         self.type = type
         self.size = size
         self.c, self.n = (c, n) 
@@ -20,25 +19,22 @@ class layer:
 
 class maxpool_layer(layer):
     def __init__(self, size, c, n, h, w, stride, pad):
-		layer.__init__(self, 'MAXPOOL', 
-			size, c, n, h, w)
-		self.stride = stride
-		self.pad = pad
+        layer.__init__(self, 'MAXPOOL', size, c, n, h, w)
+        self.stride = stride
+        self.pad = pad
 
 class convolu_layer(layer):
     def __init__(self, size, c, n, h, w, stride, pad):
-        layer.__init__(self, 'CONVOLUTIONAL', 
-        	size, c, n, h, w)
+        layer.__init__(self, 'CONVOLUTIONAL', size, c, n, h, w)
         self.stride = stride
         self.pad = pad
 
 class connect_layer(layer):
     def __init__(self, size, c, n, h, w, 
-    	input_size, output_size):
-		layer.__init__(self, 'CONNECTED', 
-			size, c, n, h, w)
-		self.output_size = output_size
-		self.input_size = input_size
+        input_size, output_size):
+        layer.__init__(self, 'CONNECTED', size, c, n, h, w)
+        self.output_size = output_size
+        self.input_size = input_size
 
 class YOLO(object):
 
