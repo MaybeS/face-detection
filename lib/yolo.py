@@ -56,17 +56,17 @@ class YOLO(object):
         stop = time.time()
 
     def build(self, model):
-		cfg = model.split('-')[0]
-		layers = cfg_yielder(cfg)
-		for i, info in enumerate(layers):
-			if i == 0: 
-				self.S = info
-				continue
-			if len(info) == 1: new = layer(type = info[0])
-			if info[0] == 'conv': new = convolu_layer(*info[1:])
-			if info[0] == 'pool': new = maxpool_layer(*info[1:])
-			if info[0] == 'conn': new = connect_layer(*info[1:])
-			self.layers.append(new)
+        cfg = model.split('-')[0]
+        layers = cfg_yielder(cfg)
+        for i, info in enumerate(layers):
+            if i == 0: 
+                self.S = info
+                continue
+            if len(info) == 1: new = layer(type = info[0])
+            if info[0] == 'conv': new = convolu_layer(*info[1:])
+            if info[0] == 'pool': new = maxpool_layer(*info[1:])
+            if info[0] == 'conn': new = connect_layer(*info[1:])
+            self.layers.append(new)
 
     def loadWeights(self, weight_path):
         self.startwith = np.array(
