@@ -81,7 +81,7 @@ class SimpleNet(object):
 
 		self.sess.run(tf.initialize_all_variables())
 
-	def mul(box, w, h):
+	def mul(self, box, w, h):
 		box['x'] *= w
 		box['w'] *= w
 		box['y'] *= h
