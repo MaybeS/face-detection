@@ -81,6 +81,13 @@ class SimpleNet(object):
 
 		self.sess.run(tf.initialize_all_variables())
 
+	def mul(box, w, h):
+		box['x'] *= w
+		box['w'] *= w
+		box['y'] *= h
+		box['h'] *= h
+		return box
+
 	def predict(self, img, threshold, merge):
 		img, w, h= crop(img)
 
@@ -126,4 +133,4 @@ class SimpleNet(object):
 			flip = True
 
 		if merge: boxes = combine(boxes, w, h, threshold)
-		return boxes
+		return [ mul(box, w, h) for box in boxes]
