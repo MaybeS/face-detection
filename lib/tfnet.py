@@ -133,4 +133,4 @@ class SimpleNet(object):
 			flip = True
 
 		if merge: boxes = combine(boxes, w, h, threshold)
-		return [ mul(box, w, h) for box in boxes]
+		return [ self.mul(box, w, h) for box in boxes]
