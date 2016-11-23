@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from .drawer import crop
+from .union import combine
 
 class SimpleNet(object):
 	labels = list()
@@ -81,9 +82,10 @@ class SimpleNet(object):
 		self.sess.run(tf.initialize_all_variables())
 
 	def predict(self, img, threshold, merge):
-		img = crop(img)
+		img, w, h= crop(img)
+
 		prehold = threshold
-		if merge: prehold /= 4
+		if merge: prehold /= 3
 
 		feed_dict = {
 			self.inp : np.concatenate([img, img[:,:,::-1,:]], 0), 
@@ -123,4 +125,5 @@ class SimpleNet(object):
 			if flip: break
 			flip = True
 
+		if merge: boxes = combine(boxes, w, h, threshold)
 		return boxes
