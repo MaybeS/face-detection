@@ -6,47 +6,46 @@ import cv2
 def fix(x,c):
 	return max(min(x,c),0)
 
-def double(imgname, boxes, boxms, color=(121,255,0)):
-  path = "/".join(imgname.split('/')[:-1])
-  name = imgname.split('/')[-1]
-  img = cv2.imread(path + '/' + name, 1)
+def load_img(imPath):
+  img = cv2.imread(imPath)
   h, w, _ = img.shape
+  return img, h, w
+
+def draw_double(imPath, toPath, boxes, boxms, color=(121,255,0)):
+  img, h, w = load_img(imPath)
   for box in boxes:
-    left = int((box['x'] - box['w'] / 2.) * w)
-    right = int((box['x'] + box['w'] / 2.) * w)
-    top = int((box['y'] - box['h'] / 2.) * h)
-    bot = int((box['y'] + box['h'] / 2.) * h)
+    left = int((box['x'] - box['w'] / 2.))
+    right = int((box['x'] + box['w'] / 2.))
+    top = int((box['y'] - box['h'] / 2.))
+    bot = int((box['y'] + box['h'] / 2.))
 
     cv2.rectangle(img, 
               (left, top), (right, bot), 
               color, 3)
   for box in boxms:
-    left = int((box['x'] - box['w'] / 2.) * w)
-    right = int((box['x'] + box['w'] / 2.) * w)
-    top = int((box['y'] - box['h'] / 2.) * h)
-    bot = int((box['y'] + box['h'] / 2.) * h)
+    left = int((box['x'] - box['w'] / 2.))
+    right = int((box['x'] + box['w'] / 2.))
+    top = int((box['y'] - box['h'] / 2.))
+    bot = int((box['y'] + box['h'] / 2.))
 
     cv2.rectangle(img, 
               (left, top), (right, bot), 
               (0,121,255), 3)
 
-  cv2.imwrite('./results/' + name, img)
+  cv2.imwrite(toPath, img)
 
-def draw(imgname, boxes, color=(121,255,0)):
-  path = "/".join(imgname.split('/')[:-1])
-  name = imgname.split('/')[-1]
-  img = cv2.imread(path + '/' + name, 1)
-  h, w, _ = img.shape
+def draw(imPath, toPath, boxes, color=(121,255,0)):
+  img, h, w = load_img(imPath)
   for box in boxes:
-    left = int((box['x'] - box['w'] / 2.) * w)
-    right = int((box['x'] + box['w'] / 2.) * w)
-    top = int((box['y'] - box['h'] / 2.) * h)
-    bot = int((box['y'] + box['h'] / 2.) * h)
+    left = int((box['x'] - box['w'] / 2.))
+    right = int((box['x'] + box['w'] / 2.))
+    top = int((box['y'] - box['h'] / 2.))
+    bot = int((box['y'] + box['h'] / 2.))
 
     cv2.rectangle(img, 
               (left, top), (right, bot), 
               color, 3)
-  cv2.imwrite('./results/' + name, img)
+  cv2.imwrite(toPath, img)
 
 def crop(imPath, allobj = None):
 	im = cv2.imread(imPath)
