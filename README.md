@@ -12,7 +12,7 @@ and
 pre-trained model for detecting face.
 training with FDDB, WIDER database. (loss<=0.5)
 
-download [weights](https://drive.google.com/file/d/0BwQhFb-IfuTFbDJLa2U3TkVPdGc/view?usp=sharing) to /models/
+download [weights](https://drive.google.com/file/d/0BwQhFb-IfuTFelBxNDhBTEJkdkU/view?usp=sharing) to /models/
 
 ## Test
 see `test.py`
