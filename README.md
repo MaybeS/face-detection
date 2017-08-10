@@ -16,3 +16,6 @@ download [weights](https://drive.google.com/file/d/0BwQhFb-IfuTFelBxNDhBTEJkdkU/
 
 ## Test
 see `test.py`
+
+## Sample result
+![thumbnail](https://github.com/MaybeS/face-detection/blob/master/results/test.jpg?raw=true)
