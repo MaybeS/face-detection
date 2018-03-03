@@ -2,15 +2,13 @@ from .tfnet import SimpleNet
 from .yolo import YOLO
 
 class FaceDetectionRegressor:
-  def __init__(self, gpu=0.0):
+  def __init__(self, weight=None, gpu=0.0):
     self.gpu = gpu
-    self.model = None
+    self.model = SimpleNet(YOLO(weight)) if weight else None
 
-  def predict(self, X, threshold=0.4, merge=False):
-    predictions = self.model.predict(img=X, threshold=threshold, merge=merge)
-    return predictions
+  def predict(self, img, threshold=0.4):
+    return self.model.predict(img=img, threshold=threshold)
 
   def load_weights(self, weight_path='./models'):
-    yoloNet = YOLO(weight_path)
-    self.model = SimpleNet(yoloNet)
+    self.model = SimpleNet(YOLO(weight_path))
     self.model.setup_meta_ops(self.gpu)

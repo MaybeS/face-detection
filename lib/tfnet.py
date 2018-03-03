@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from .drawer import crop
-from .union import combine
+from .image import imresize, imrefine
 
 class SimpleNet(object):
 	labels = list()
@@ -27,7 +26,7 @@ class SimpleNet(object):
 					size = np.int(now.get_shape()[1])
 					expect = -(l.pad + 1) * l.stride # there you go bietche 
 					expect += l.size - size
-					padding = [expect / 2, expect - expect / 2]
+					padding = [int(expect / 2), int(expect - expect / 2)]
 					if padding[0] < 0: padding[0] = 0
 					if padding[1] < 0: padding[1] = 0
 				else:
@@ -79,20 +78,13 @@ class SimpleNet(object):
 				allow_soft_placement = False,
 				log_device_placement = False))
 
-		self.sess.run(tf.initialize_all_variables())
+		self.sess.run(tf.global_variables_initializer())
 
-	def mul(self, box, w, h):
-		box['x'] *= w
-		box['w'] *= w
-		box['y'] *= h
-		box['h'] *= h
-		return box
-
-	def predict(self, img, threshold, merge):
-		img, w, h= crop(img)
+	def predict(self, img, threshold):
+		_h, _w, _ = img.shape
+		img = imrefine(imresize(img))
 
 		prehold = threshold
-		if merge: prehold /= 3
 
 		feed_dict = {
 			self.inp : np.concatenate([img, img[:,:,::-1,:]], 0), 
@@ -119,18 +111,16 @@ class SimpleNet(object):
 
 			for grid in range(SS):
 				for b in range(2):
-					box = {'w':0, 'h':0, 'x':0, 'y':0, 'p':0}
-					box['x'] = (cords[grid, b, 0] + grid %  self.S) / self.S
-					box['x'] = 1 - box['x'] if flip else box['x']
-					box['y'] = (cords[grid, b, 1] + grid // self.S) / self.S
-					box['w'] =  cords[grid, b, 2] ** 2
-					box['h'] =  cords[grid, b, 3] ** 2
-					box['p'] = confs[grid, b] * probs[grid, 0]
-					if box['p'] > prehold:
-						boxes.append(box)
+					x = (cords[grid, b, 0] + grid %  self.S) / self.S
+					x = 1 - x if flip else x
+					y = (cords[grid, b, 1] + grid // self.S) / self.S
+					w =  cords[grid, b, 2] ** 2
+					h =  cords[grid, b, 3] ** 2
+					p = confs[grid, b] * probs[grid, 0]
+					if p > prehold:
+						boxes.append([(x-w/2)*_w,(y-h/2)*_h,(x+w/2)*_w,(y+h/2)*_h,p])
 
 			if flip: break
 			flip = True
 
-		if merge: boxes = combine(boxes, w, h, threshold)
-		return [ self.mul(box, w, h) for box in boxes]
+		return boxes
